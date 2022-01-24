@@ -13,7 +13,7 @@ pkgrel=2
 arch=('aarch64')
 url="http://www.kernel.org/"
 license=('GPL2')
-makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' 'vboot-utils' 'dtc')
+makedepends=('xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'uboot-tools' 'vboot-utils' 'dtc' 'cpio')
 options=('!strip')
 source=("http://www.kernel.org/pub/linux/kernel/v5.x/${_srcname}.tar.xz"
         "http://www.kernel.org/pub/linux/kernel/v5.x/patch-${pkgver}.xz"
@@ -26,7 +26,6 @@ source=("http://www.kernel.org/pub/linux/kernel/v5.x/${_srcname}.tar.xz"
 	'0005-kernel-backlight.patch'
 	'0006-kernel-panel.patch'
         'config'
-        'generate_chromebook_its.sh'
         'kernel.keyblock'
         'kernel_data_key.vbprivk'
         'linux.preset'
@@ -42,8 +41,7 @@ md5sums=('e6680ce7c989a3efe58b51e3f3f0bf93'
 	 '3b45ad17fa9a2960730d71f0d69a3265'
 	 '3203d018422505068fc22b909df871aa'
 	 '8232f2ca835afe6437e18a25ae7c315b'
-         '933bc7c21f75e45ded7ff11b33d8aab0'
-         '7c97cf141750ad810235b1ad06eb9f75'
+         '818e2ca23311946f87fae814ff6afc30'
          '61c5ff73c136ed07a7aadbf58db3d96a'
          '584777ae88bce2c5659960151b64c7d8'
          '38e59d9919735bee0752faff1db00a4c'
@@ -213,47 +211,7 @@ _package-headers() {
   ln -sr "$builddir" "$pkgdir/usr/src/$pkgbase"
 }
 
-_package-chromebook() {
-  pkgdesc="The Linux Kernel - ${_desc} - Chromebooks"
-  depends=('linux-aarch64')
-  conflicts=('linux-aarch64-rc-chromebook')
-  install=${pkgname}.install
-
-  cd ${_srcname}
-
-  mkdir -p "${pkgdir}/boot"
-
-  image=arch/arm64/boot/Image
-
-  chromeos_boards=(
-    'elm'
-    'gru'
-    'kukui'
-    'trogdor'
-    'asurada'
-  )
-  chromebook_dtbs=($(for b in ${chromeos_boards[@]}; do find arch/arm64/boot -name "*${b}*.dtb" | LC_COLLATE=C sort; done))
-
-  lz4 -20 -z -f -m ${image}
-  echo ${chromebook_dtbs[@]} | ../generate_chromebook_its.sh ${image}.lz4 arm64 lz4 > kernel.its
-
-  mkimage -D "-I dts -O dtb -p 2048" -f kernel.its vmlinux.uimg
-  dd if=/dev/zero of=bootloader.bin bs=512 count=1
-  echo "console=tty0 console=ttyS2,115200n8 earlyprintk=ttyS2,115200n8 console=ttyMSM0,115200n8 init=/sbin/init root=PARTUUID=%U/PARTNROFF=1 rootwait rw noinitrd" > cmdline
-  vbutil_kernel \
-    --pack vmlinux.kpart \
-    --version 1 \
-    --vmlinuz vmlinux.uimg \
-    --arch aarch64 \
-    --keyblock ../kernel.keyblock \
-    --signprivate ../kernel_data_key.vbprivk \
-    --config cmdline \
-    --bootloader bootloader.bin
-
-  cp vmlinux.kpart "${pkgdir}/boot"
-}
-
-pkgname=("${pkgbase}" "${pkgbase}-headers" "${pkgbase}-chromebook")
+pkgname=("${pkgbase}" "${pkgbase}-headers")
 for _p in ${pkgname[@]}; do
   eval "package_${_p}() {
     _package${_p#${pkgbase}}
